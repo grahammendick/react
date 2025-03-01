@@ -687,11 +687,18 @@ module.exports = function (webpackEnv) {
       // Fork Start
       new ReactFlightWebpackPlugin({
         isServer: false,
-        clientReferences: {
-          directory: './src',
-          recursive: true,
-          include: /\.(js|ts|jsx|tsx)$/,
-        },
+        clientReferences: [
+          {
+            directory: './src',
+            recursive: true,
+            include: /\.(js|ts|jsx|tsx)$/,
+          },
+          {
+            directory: './node_modules/navigation-react',
+            recursive: true,
+            include: /\.(js|ts|jsx|tsx)$/,
+          }
+        ],
       }),
       // Fork End
     ].filter(Boolean),

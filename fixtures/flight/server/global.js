@@ -109,7 +109,7 @@ async function renderApp(req, res, next) {
       host: '127.0.0.1',
       port: 3001,
       method: req.method,
-      path: requestsPrerender ? '/?prerender=1' : '/',
+      path: req.url,
       headers: proxiedHeaders,
     },
     req
@@ -180,7 +180,7 @@ async function renderApp(req, res, next) {
       // Render it into HTML by resolving the client components
       res.set('Content-type', 'text/html');
       const {pipe} = renderToPipeableStream(React.createElement(Root), {
-        bootstrapScripts: mainJSChunks,
+        bootstrapScripts: mainJSChunks.map(filename => '/' + filename),
         formState: formState,
         onShellReady() {
           pipe(res);
@@ -189,7 +189,7 @@ async function renderApp(req, res, next) {
           const {pipe: pipeError} = renderToPipeableStream(
             React.createElement('html', null, React.createElement('body')),
             {
-              bootstrapScripts: mainJSChunks,
+              bootstrapScripts: mainJSChunks.map(filename => '/' + filename),
             }
           );
           pipeError(res);
@@ -219,9 +219,6 @@ async function renderApp(req, res, next) {
     }
   }
 }
-
-app.all('/', renderApp);
-app.all('/prerender', renderApp);
 
 if (process.env.NODE_ENV === 'development') {
   app.use(express.static('public'));
@@ -266,6 +263,9 @@ if (process.env.NODE_ENV === 'development') {
   // In production we host the static build output.
   app.use(express.static('build'));
 }
+
+app.get('*', renderApp);
+app.all('/prerender', renderApp);
 
 app.listen(3000, () => {
   console.log('Global Fizz/Webpack Server listening on port 3000...');

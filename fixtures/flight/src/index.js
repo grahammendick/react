@@ -43,7 +43,7 @@ function Shell({data}) {
 
 async function hydrateApp() {
   const {root, returnValue, formState} = await createFromFetch(
-    fetch('/', {
+    fetch(window.location.pathname + window.location.search, {
       headers: {
         Accept: 'text/x-component',
       },

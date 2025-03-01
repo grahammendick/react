@@ -49,13 +49,16 @@ app.use(compress());
 const {readFile} = require('fs').promises;
 
 const React = require('react');
+const {StateNavigator} = require('navigation');
+const stateNavigator = require('../src/stateNavigator.js');
 
-async function renderApp(res, returnValue, formState) {
+async function renderApp(res, returnValue, formState, url) {
   const {renderToPipeableStream} = await import(
     'react-server-dom-webpack/server'
   );
   // const m = require('../src/App.js');
   const m = await import('../src/App.js');
+  const {NavigationHandler} = await import('navigation-react');
 
   let moduleMap;
   let mainCSSChunks;
@@ -85,6 +88,8 @@ async function renderApp(res, returnValue, formState) {
     ).main.css;
   }
   const App = m.default.default || m.default;
+  const navigator = new StateNavigator(stateNavigator.default);
+  navigator.navigateLink(url);
   const root = React.createElement(
     React.Fragment,
     null,
@@ -92,12 +97,15 @@ async function renderApp(res, returnValue, formState) {
     mainCSSChunks.map(filename =>
       React.createElement('link', {
         rel: 'stylesheet',
-        href: filename,
+        href: '/' + filename,
         precedence: 'default',
         key: filename,
       })
     ),
-    React.createElement(App)
+    React.createElement(
+      NavigationHandler,
+      {stateNavigator: navigator},
+      React.createElement(App, {url}))    
   );
   // For client-invoked server actions we refresh the tree and return a return value.
   const payload = {root, returnValue, formState};
@@ -152,21 +160,13 @@ async function prerenderApp(res, returnValue, formState) {
         key: filename,
       })
     ),
-    React.createElement(App, {prerender: true})
+    React.createElement(App, {url: '/'})
   );
   // For client-invoked server actions we refresh the tree and return a return value.
   const payload = {root, returnValue, formState};
   const {prelude} = await prerenderToNodeStream(payload, moduleMap);
   prelude.pipe(res);
 }
-
-app.get('/', async function (req, res) {
-  if ('prerender' in req.query) {
-    await prerenderApp(res, null, null);
-  } else {
-    await renderApp(res, null, null);
-  }
-});
 
 app.post('/', bodyParser.text(), async function (req, res) {
   const {decodeReply, decodeReplyFromBusboy, decodeAction, decodeFormState} =
@@ -320,6 +320,14 @@ if (process.env.NODE_ENV === 'development') {
     }
   });
 }
+
+app.get('*', async function (req, res) {
+  if ('prerender' in req.query) {
+    await prerenderApp(res, null, null);
+  } else {
+    await renderApp(res, null, null, req.url);
+  }
+});
 
 app.listen(3001, () => {
   console.log('Regional Flight Server listening on port 3001...');

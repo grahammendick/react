@@ -3,9 +3,6 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "devEngines": {
-    "node": "20.x || 22.x"
-  },
   "dependencies": {
     "@babel/core": "^7.16.0",
     "@babel/plugin-proposal-private-property-in-object": "^7.18.6",
@@ -15,6 +12,7 @@
     "@testing-library/jest-dom": "^5.14.1",
     "@testing-library/react": "^13.0.0",
     "@testing-library/user-event": "^13.2.1",
+    "@types/react": "19.0.0",
     "babel-jest": "^27.4.2",
     "babel-loader": "^8.2.3",
     "babel-plugin-named-asset-import": "^0.3.8",
@@ -38,6 +36,8 @@
     "jest-resolve": "^27.4.2",
     "jest-watch-typeahead": "^1.0.0",
     "mini-css-extract-plugin": "^2.4.5",
+    "navigation": "^6.2.0",
+    "navigation-react": "^4.5.1",
     "nodemon": "^2.0.19",
     "postcss": "^8.4.4",
     "postcss-flexbugs-fixes": "^5.0.2",
