@@ -28,11 +28,6 @@ babelRegister({
   sourceMaps: process.env.NODE_ENV === 'development' ? 'inline' : false,
 });
 
-if (typeof fetch === 'undefined') {
-  // Patch fetch for earlier Node versions.
-  global.fetch = require('undici').fetch;
-}
-
 const express = require('express');
 const app = express();
 const compress = require('compression');
@@ -40,8 +35,6 @@ const compress = require('compression');
 
 app.use(compress());
 app.use(express.json());
-
-// Application
 
 const {readFile} = require('fs').promises;
 
@@ -53,8 +46,6 @@ async function renderApp(req, res, el) {
   const {renderToPipeableStream} = await import(
     'react-server-dom-webpack/server'
   );
-  const m = await import('../src/App.js');
-  const {NavigationHandler} = await import('navigation-react');
 
   let moduleMap;
   let mainCSSChunks;
@@ -83,6 +74,7 @@ async function renderApp(req, res, el) {
       )
     ).main.css;
   }
+  const {NavigationHandler} = await import('navigation-react');
   const navigator = new StateNavigator(stateNavigator.default);
   navigator.navigateLink(req.url);
   const root = React.createElement(
