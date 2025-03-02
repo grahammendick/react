@@ -43,6 +43,7 @@ const {Readable} = require('node:stream');
 const nodeModule = require('node:module');
 
 app.use(compress());
+app.use(express.json());
 
 // Application
 
@@ -197,10 +198,15 @@ app.get('*', async function (req, res) {
   await renderApp(req, res, React.createElement(App, {url: req.url}));
 });
 
+
 app.post('*', async function (req, res) {
-  const m = await import('../src/People.js');
-  const People = m.default.default || m.default;
-  await renderApp(req, res, React.createElement(People));
+  const sceneViews = {
+    people: await import('../src/People.js'),
+    person: await import('../src/Person.js'),
+    friends: await import('../src/Friends.js')
+  };
+  const View = sceneViews[req.body.sceneViewKey].default;
+  await renderApp(req, res, React.createElement(View));
 });
 
 app.listen(3001, () => {
