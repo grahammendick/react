@@ -52,11 +52,10 @@ const React = require('react');
 const {StateNavigator} = require('navigation');
 const stateNavigator = require('../src/stateNavigator.js');
 
-async function renderApp(res, returnValue, formState, url) {
+async function renderApp(req, res, el) {
   const {renderToPipeableStream} = await import(
     'react-server-dom-webpack/server'
   );
-  // const m = require('../src/App.js');
   const m = await import('../src/App.js');
   const {NavigationHandler} = await import('navigation-react');
 
@@ -87,9 +86,8 @@ async function renderApp(res, returnValue, formState, url) {
       )
     ).main.css;
   }
-  const App = m.default.default || m.default;
   const navigator = new StateNavigator(stateNavigator.default);
-  navigator.navigateLink(url);
+  navigator.navigateLink(req.url);
   const root = React.createElement(
     React.Fragment,
     null,
@@ -105,139 +103,11 @@ async function renderApp(res, returnValue, formState, url) {
     React.createElement(
       NavigationHandler,
       {stateNavigator: navigator},
-      React.createElement(App, {url}))    
+      el)
   );
-  // For client-invoked server actions we refresh the tree and return a return value.
-  const payload = {root, returnValue, formState};
-  const {pipe} = renderToPipeableStream(payload, moduleMap);
+  const {pipe} = renderToPipeableStream(req.accepts('text/html') ? {root} : root, moduleMap);
   pipe(res);
 }
-
-async function prerenderApp(res, returnValue, formState) {
-  const {unstable_prerenderToNodeStream: prerenderToNodeStream} = await import(
-    'react-server-dom-webpack/static'
-  );
-  // const m = require('../src/App.js');
-  const m = await import('../src/App.js');
-
-  let moduleMap;
-  let mainCSSChunks;
-  if (process.env.NODE_ENV === 'development') {
-    // Read the module map from the HMR server in development.
-    moduleMap = await (
-      await fetch('http://localhost:3000/react-client-manifest.json')
-    ).json();
-    mainCSSChunks = (
-      await (
-        await fetch('http://localhost:3000/entrypoint-manifest.json')
-      ).json()
-    ).main.css;
-  } else {
-    // Read the module map from the static build in production.
-    moduleMap = JSON.parse(
-      await readFile(
-        path.resolve(__dirname, `../build/react-client-manifest.json`),
-        'utf8'
-      )
-    );
-    mainCSSChunks = JSON.parse(
-      await readFile(
-        path.resolve(__dirname, `../build/entrypoint-manifest.json`),
-        'utf8'
-      )
-    ).main.css;
-  }
-  const App = m.default.default || m.default;
-  const root = React.createElement(
-    React.Fragment,
-    null,
-    // Prepend the App's tree with stylesheets required for this entrypoint.
-    mainCSSChunks.map(filename =>
-      React.createElement('link', {
-        rel: 'stylesheet',
-        href: filename,
-        precedence: 'default',
-        key: filename,
-      })
-    ),
-    React.createElement(App, {url: '/'})
-  );
-  // For client-invoked server actions we refresh the tree and return a return value.
-  const payload = {root, returnValue, formState};
-  const {prelude} = await prerenderToNodeStream(payload, moduleMap);
-  prelude.pipe(res);
-}
-
-app.post('/', bodyParser.text(), async function (req, res) {
-  const {decodeReply, decodeReplyFromBusboy, decodeAction, decodeFormState} =
-    await import('react-server-dom-webpack/server');
-  const serverReference = req.get('rsc-action');
-  if (serverReference) {
-    // This is the client-side case
-    const [filepath, name] = serverReference.split('#');
-    const action = (await import(filepath))[name];
-    // Validate that this is actually a function we intended to expose and
-    // not the client trying to invoke arbitrary functions. In a real app,
-    // you'd have a manifest verifying this before even importing it.
-    if (action.$$typeof !== Symbol.for('react.server.reference')) {
-      throw new Error('Invalid action');
-    }
-
-    let args;
-    if (req.is('multipart/form-data')) {
-      // Use busboy to streamingly parse the reply from form-data.
-      const bb = busboy({headers: req.headers});
-      const reply = decodeReplyFromBusboy(bb);
-      req.pipe(bb);
-      args = await reply;
-    } else {
-      args = await decodeReply(req.body);
-    }
-    const result = action.apply(null, args);
-    try {
-      // Wait for any mutations
-      await result;
-    } catch (x) {
-      // We handle the error on the client
-    }
-    // Refresh the client and return the value
-    renderApp(res, result, null);
-  } else {
-    // This is the progressive enhancement case
-    const UndiciRequest = require('undici').Request;
-    const fakeRequest = new UndiciRequest('http://localhost', {
-      method: 'POST',
-      headers: {'Content-Type': req.headers['content-type']},
-      body: Readable.toWeb(req),
-      duplex: 'half',
-    });
-    const formData = await fakeRequest.formData();
-    const action = await decodeAction(formData);
-    try {
-      // Wait for any mutations
-      const result = await action();
-      const formState = decodeFormState(result, formData);
-      renderApp(res, null, formState);
-    } catch (x) {
-      const {setServerState} = await import('../src/ServerState.js');
-      setServerState('Error: ' + x.message);
-      renderApp(res, null, null);
-    }
-  }
-});
-
-app.get('/todos', function (req, res) {
-  res.json([
-    {
-      id: 1,
-      text: 'Shave yaks',
-    },
-    {
-      id: 2,
-      text: 'Eat kale',
-    },
-  ]);
-});
 
 if (process.env.NODE_ENV === 'development') {
   const rootDir = path.resolve(__dirname, '../');
@@ -322,11 +192,15 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 app.get('*', async function (req, res) {
-  if ('prerender' in req.query) {
-    await prerenderApp(res, null, null);
-  } else {
-    await renderApp(res, null, null, req.url);
-  }
+  const m = await import('../src/App.js');
+  const App = m.default.default || m.default;
+  await renderApp(req, res, React.createElement(App, {url: req.url}));
+});
+
+app.post('*', async function (req, res) {
+  const m = await import('../src/People.js');
+  const People = m.default.default || m.default;
+  await renderApp(req, res, React.createElement(People));
 });
 
 app.listen(3001, () => {

@@ -93,6 +93,7 @@ async function renderApp(req, res, next) {
     'X-Forwarded-For': req.ips,
     'X-Forwarded-Port': 3000,
     'X-Forwarded-Proto': req.protocol,
+    'Accept': req.get('Accept'),
   };
   // Proxy other headers as desired.
   if (req.get('rsc-action')) {
@@ -155,23 +156,15 @@ async function renderApp(req, res, next) {
 
       // Tee the response into two streams so that we can do both.
       const rscResponse1 = new PassThrough();
-      const rscResponse2 = new PassThrough();
 
       rscResponse.pipe(rscResponse1);
-      rscResponse.pipe(rscResponse2);
-
-      const {formState} = await createFromNodeStream(
-        rscResponse1,
-        serverConsumerManifest
-      );
-      rscResponse1.end();
 
       let cachedResult;
       let Root = () => {
         if (!cachedResult) {
           // Read this stream inside the render.
           cachedResult = createFromNodeStream(
-            rscResponse2,
+            rscResponse1,
             serverConsumerManifest
           );
         }
@@ -181,7 +174,6 @@ async function renderApp(req, res, next) {
       res.set('Content-type', 'text/html');
       const {pipe} = renderToPipeableStream(React.createElement(Root), {
         bootstrapScripts: mainJSChunks.map(filename => '/' + filename),
-        formState: formState,
         onShellReady() {
           pipe(res);
         },
@@ -264,7 +256,7 @@ if (process.env.NODE_ENV === 'development') {
   app.use(express.static('build'));
 }
 
-app.get('*', renderApp);
+app.all('*', renderApp);
 app.all('/prerender', renderApp);
 
 app.listen(3000, () => {
