@@ -95,15 +95,8 @@ async function renderApp(req, res, next) {
     'X-Forwarded-Proto': req.protocol,
     'Accept': req.get('Accept'),
   };
-  // Proxy other headers as desired.
-  if (req.get('rsc-action')) {
+  if (req.get('Content-type'))
     proxiedHeaders['Content-type'] = req.get('Content-type');
-    proxiedHeaders['rsc-action'] = req.get('rsc-action');
-  } else if (req.get('Content-type')) {
-    proxiedHeaders['Content-type'] = req.get('Content-type');
-  }
-
-  const requestsPrerender = req.path === '/prerender';
 
   const promiseForData = request(
     {
@@ -214,50 +207,12 @@ async function renderApp(req, res, next) {
 
 if (process.env.NODE_ENV === 'development') {
   app.use(express.static('public'));
-
-  app.get('/source-maps', async function (req, res, next) {
-    // Proxy the request to the regional server.
-    const proxiedHeaders = {
-      'X-Forwarded-Host': req.hostname,
-      'X-Forwarded-For': req.ips,
-      'X-Forwarded-Port': 3000,
-      'X-Forwarded-Proto': req.protocol,
-    };
-
-    const promiseForData = request(
-      {
-        host: '127.0.0.1',
-        port: 3001,
-        method: req.method,
-        path: req.originalUrl,
-        headers: proxiedHeaders,
-      },
-      req
-    );
-
-    try {
-      const rscResponse = await promiseForData;
-      res.set('Content-type', 'application/json');
-      rscResponse.on('data', data => {
-        res.write(data);
-        res.flush();
-      });
-      rscResponse.on('end', data => {
-        res.end();
-      });
-    } catch (e) {
-      console.error(`Failed to proxy request: ${e.stack}`);
-      res.statusCode = 500;
-      res.end();
-    }
-  });
 } else {
   // In production we host the static build output.
   app.use(express.static('build'));
 }
 
 app.all('*', renderApp);
-app.all('/prerender', renderApp);
 
 app.listen(3000, () => {
   console.log('Global Fizz/Webpack Server listening on port 3000...');
