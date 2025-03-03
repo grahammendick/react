@@ -139,15 +139,6 @@ async function renderApp(req, res, next) {
           'utf8'
         )
       ).main.js;
-      // For HTML, we're a "client" emulator that runs the client code,
-      // so we start by consuming the RSC payload. This needs a module
-      // map that reverse engineers the client-side path to the SSR path.
-
-      // We need to get the formState before we start rendering but we also
-      // need to run the Flight client inside the render to get all the preloads.
-      // The API is ambivalent about what's the right one so we need two for now.
-
-      // Tee the response into two streams so that we can do both.
       const rscResponse1 = new PassThrough();
 
       rscResponse.pipe(rscResponse1);
