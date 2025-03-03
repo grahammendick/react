@@ -238,19 +238,7 @@ module.exports = function (webpackEnv) {
         : isEnvDevelopment &&
           (info => pathToFileURL(path.resolve(info.absoluteResourcePath))),
     },
-    cache: {
-      type: 'filesystem',
-      version: createEnvironmentHash(env.raw),
-      cacheDirectory: paths.appWebpackCache,
-      store: 'pack',
-      buildDependencies: {
-        defaultWebpack: ['webpack/lib/'],
-        config: [__filename],
-        tsconfig: [paths.appTsConfig, paths.appJsConfig].filter(f =>
-          fs.existsSync(f)
-        ),
-      },
-    },
+    cache: false,
     infrastructureLogging: {
       level: 'none',
     },
